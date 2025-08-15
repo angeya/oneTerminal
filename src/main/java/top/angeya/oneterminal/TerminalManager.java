@@ -24,7 +24,6 @@ public class TerminalManager {
 
     public TabPane initView() {
         this.tabPane = new TabPane();
-        // open a default terminal
         this.createTerminalTab("默认终端", null);
         return this.tabPane;
     }

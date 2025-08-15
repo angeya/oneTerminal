@@ -1,20 +1,27 @@
 package top.angeya.oneterminal;
 
+import atlantafx.base.theme.Dracula;
+import atlantafx.base.theme.NordDark;
+import atlantafx.base.theme.NordLight;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.MouseButton;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import org.slf4j.LoggerFactory;
+import top.angeya.oneterminal.util.ImageUtil;
+import top.angeya.oneterminal.util.RegionUtil;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -47,21 +54,53 @@ public class CommandManager {
 
     public VBox initView() {
         this.loadShortcuts();
+        Button addBtn = new Button("", ImageUtil.createImageView(ImageResources.NEW_COMMAND_ICON, 16));
+        Button newTabBtn = new Button("", ImageUtil.createImageView(ImageResources.NEW_TERMINAL_ICON, 16));
+        RegionUtil.setSize(24, addBtn, newTabBtn);
+
+        ChoiceBox<String> choiceBox = new ChoiceBox<>();
+        // ImageUtil.createImageView(ImageResources.THEME_ICON, 16);
+        choiceBox.getItems().add("Dracula");
+        choiceBox.getItems().add("Nord Dark");
+        choiceBox.getItems().add("Nord Light");
+
+        choiceBox.setPadding(Insets.EMPTY);
+        RegionUtil.setSize(48, 24, choiceBox);
+
+        choiceBox.setOnAction((event) -> {
+            int selectedIndex = choiceBox.getSelectionModel().getSelectedIndex();
+            String themeName = choiceBox.getSelectionModel().getSelectedItem();
+            LOG.info("选择主题: {}", themeName);
+            Scene scene = stage.getScene();
+            switch (themeName) {
+                case "Dracula":
+                    scene.getStylesheets().clear();
+                    scene.getStylesheets().add(new Dracula().getUserAgentStylesheet());
+                    break;
+                case "Nord Dark":
+                    scene.getStylesheets().clear();
+                    scene.getStylesheets().add(new NordDark().getUserAgentStylesheet());
+                    break;
+                case "Nord Light":
+                    scene.getStylesheets().clear();
+                    scene.getStylesheets().add(new NordLight().getUserAgentStylesheet());
+                    break;
+            }
+        });
+
+
+        HBox buttons = new HBox(8, addBtn, newTabBtn, choiceBox);
+        buttons.setPadding(new Insets(6));
+
         // 左侧命令管理树
         TreeView<NodeData> treeView = this.initCommandTree();
 
-        VBox vBox = new VBox(treeView);
+        VBox vBox = new VBox(buttons, treeView);
         vBox.setPadding(new Insets(8));
-        VBox.setVgrow(treeView, Priority.ALWAYS);
-
-        // bottom buttons for add / new tab
-        Button addBtn = new Button("新增命令");
-        Button newTabBtn = new Button("新建终端");
-        HBox leftBottom = new HBox(8, addBtn, newTabBtn);
-        leftBottom.setPadding(new Insets(6));
-        vBox.getChildren().add(leftBottom);
         addBtn.setOnAction(e -> showCommandEditDialog(stage));
         newTabBtn.setOnAction(e -> this.terminalManager.createTerminalTab("终端", null));
+
+        VBox.setVgrow(treeView, Priority.ALWAYS);
         return vBox;
     }
 
@@ -111,7 +150,7 @@ public class CommandManager {
                 }
             }
         });
-        // double-click leaf -> run command in current terminal
+        // 双击命令，将命令输入到终端
         this.treeView.setOnMouseClicked(mouseEvent -> {
             if (mouseEvent.getButton() == MouseButton.PRIMARY && mouseEvent.getClickCount() == 2) {
                 TreeItem<NodeData> treeItem = treeView.getSelectionModel().getSelectedItem();
@@ -120,8 +159,6 @@ public class CommandManager {
                 }
             }
         });
-
-
         return treeView;
     }
 
@@ -142,9 +179,20 @@ public class CommandManager {
         cmdField.setPromptText("请输入命令内容");
         tagsField.setPromptText("请输入标签，支持,分隔");
 
-        VBox v = new VBox(8, new Label("名称:"), nameField, new Label("命令:"), cmdField, new Label("标签:"), tagsField);
-        v.setPadding(new Insets(10));
-        dialog.getDialogPane().setContent(v);
+        // 创建 GridPane 作为布局容器
+        GridPane container = new GridPane();
+        container.setPadding(new Insets(20)); // 容器内边距
+        container.setHgap(10);
+        container.setVgap(10);
+
+        container.add(new Label("名称:"), 0, 0);
+        container.add(nameField, 1, 0);
+        container.add(new Label("命令:"), 0, 1);
+        container.add(cmdField, 1, 1);
+        container.add(new Label("标签:"), 0, 2);
+        container.add(tagsField, 1, 2);
+
+        dialog.getDialogPane().setContent(container);
 
         ButtonType ok = new ButtonType("确定", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(ok, ButtonType.CANCEL);
@@ -158,6 +206,14 @@ public class CommandManager {
                     return null;
                 }
                 List<String> tags = parseTags(tagsRaw);
+
+                // 可选：显示简单提示
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("提示");
+                alert.setHeaderText(null);
+                alert.setContentText("保存成功！");
+                alert.showAndWait();
+
                 return new ShortcutCommand(n, c, tags);
             }
             return null;
@@ -232,7 +288,8 @@ public class CommandManager {
 
     /**
      * 显示编辑对话框
-     * @param stage 父级窗体
+     *
+     * @param stage   父级窗体
      * @param command 快捷命令
      */
     private void showCommandEditDialog(Stage stage, ShortcutCommand command) {
@@ -282,7 +339,8 @@ public class CommandManager {
     public void loadShortcuts() {
         try {
             if (Files.exists(configFile)) {
-                List<ShortcutCommand> list = objectMapper.readValue(configFile.toFile(), new TypeReference<>() {});
+                List<ShortcutCommand> list = objectMapper.readValue(configFile.toFile(), new TypeReference<>() {
+                });
                 shortcuts.setAll(list);
             } else {
                 // 给默认命令
@@ -296,6 +354,7 @@ public class CommandManager {
 
     /**
      * 复制到剪贴板
+     *
      * @param text 文本
      */
     private void copyToClipboard(String text) {

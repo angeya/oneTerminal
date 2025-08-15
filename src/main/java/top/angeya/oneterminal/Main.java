@@ -2,6 +2,7 @@ package top.angeya.oneterminal;
 
 import atlantafx.base.theme.Dracula;
 import javafx.application.Application;
+import javafx.application.HostServices;
 import javafx.scene.Scene;
 import javafx.scene.control.TabPane;
 import javafx.scene.image.Image;
@@ -31,8 +32,9 @@ public class Main extends Application {
         BorderPane container = new BorderPane();
 
         // 创建自定义标题栏并放到顶部
-        HBox titleBar = new TitleBar().initView(primaryStage);
-        container.setTop(titleBar);
+        TitleBar titleBar = new TitleBar(this.getHostServices());
+        HBox titleBarView = titleBar.initTitleBar(primaryStage);
+        container.setTop(titleBarView);
         container.setLeft(leftBox);
         container.setCenter(rightTabPane);
 
@@ -41,6 +43,9 @@ public class Main extends Application {
         Scene scene = new Scene(container, 1000, 640);
         scene.getStylesheets().add(new Dracula().getUserAgentStylesheet());
         primaryStage.setScene(scene);
+
+        // appBasic.makeStageResizable(primaryStage, container);
+
         primaryStage.getIcons().add(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/cmd.png"))));
         primaryStage.show();
 
